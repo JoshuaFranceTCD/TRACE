@@ -9,6 +9,24 @@ export interface Suspect {
   dnaExplanation: string;
   fingerprintExplanation: string;
   shoeprintExplanation: string | null;
+  linkedCases: string[];
+}
+
+export interface CaseEvidence {
+  dna: boolean;
+  fingerprint: boolean;
+  shoeprint: boolean;
+}
+
+export interface Case {
+  id: string;
+  title: string;
+  status: 'active' | 'archived';
+  date: string;
+  description: string;
+  linkedSuspects: string[];
+  evidence: CaseEvidence;
+  analysisCompleted?: boolean;
 }
 
 export interface EvidenceFiles {
@@ -37,6 +55,7 @@ export const MOCK_SUSPECTS: Suspect[] = [
     dnaExplanation: '13/13 STR loci matched with high allele frequency correlation. Random match probability: 1 in 8.2 billion.',
     fingerprintExplanation: '12 minutiae points matched across ridge patterns. Level 2 detail comparison confirms arch-loop consistency.',
     shoeprintExplanation: 'Partial tread pattern match (Nike Air Max 90, Size 11). Wear pattern consistent at 68% overlay.',
+    linkedCases: ['C-1042', 'C-0988'],
   },
   {
     id: 'S-002',
@@ -49,6 +68,7 @@ export const MOCK_SUSPECTS: Suspect[] = [
     dnaExplanation: '5/13 STR loci partial match. Likely familial connection (sibling or parent). Random match probability: 1 in 420.',
     fingerprintExplanation: '4 minutiae points matched. Ridge flow pattern diverges at delta region. Inconclusive.',
     shoeprintExplanation: null,
+    linkedCases: ['C-1042'],
   },
   {
     id: 'S-003',
@@ -61,6 +81,7 @@ export const MOCK_SUSPECTS: Suspect[] = [
     dnaExplanation: '10/13 STR loci matched. Two loci show microvariant alleles requiring further sequencing. RMP: 1 in 1.4 million.',
     fingerprintExplanation: '8 minutiae points matched. Core pattern consistent but bifurcation count diverges in ulnar region.',
     shoeprintExplanation: 'Strong tread match (Adidas Ultraboost, Size 10.5). Wear erosion pattern aligns at 79% confidence.',
+    linkedCases: ['C-1055'],
   },
   {
     id: 'S-004',
@@ -73,6 +94,7 @@ export const MOCK_SUSPECTS: Suspect[] = [
     dnaExplanation: '3/13 STR loci overlap. Likely coincidental match within population frequency. No familial indicators.',
     fingerprintExplanation: '2 minutiae points matched. Pattern type mismatch (whorl vs. loop). Exclusion recommended.',
     shoeprintExplanation: 'Generic tread pattern (common athletic shoe). Size matches but brand undetermined.',
+    linkedCases: ['C-0988'],
   },
   {
     id: 'S-005',
@@ -85,5 +107,37 @@ export const MOCK_SUSPECTS: Suspect[] = [
     dnaExplanation: '11/13 STR loci matched. Two discrepant loci may indicate degraded sample. RMP: 1 in 56 million.',
     fingerprintExplanation: '10 minutiae points matched. Ridge count between core and delta consistent. Partial smudge on index finger.',
     shoeprintExplanation: 'Moderate match (New Balance 574, Size 11). Heel wear pattern partially consistent.',
+    linkedCases: ['C-1042', 'C-1055'],
   },
+];
+
+export const MOCK_CASES: Case[] = [
+  {
+    id: 'C-1055',
+    title: 'Downtown Art Heist',
+    status: 'active',
+    date: '2023-11-14',
+    description: 'Break-in at the contemporary art gallery. Primary evidence collected at point of entry.',
+    linkedSuspects: ['S-003', 'S-005'],
+    evidence: { dna: true, fingerprint: true, shoeprint: true }
+  },
+  {
+    id: 'C-1042',
+    title: 'Riverfront Warehouse Arson',
+    status: 'active',
+    date: '2023-10-28',
+    description: 'Suspicious fire at abandoned storage facility. DNA recovered from discarded matchbook.',
+    linkedSuspects: ['S-001', 'S-002', 'S-005'],
+    evidence: { dna: true, fingerprint: false, shoeprint: false }
+  },
+  {
+    id: 'C-0988',
+    title: 'Subway Station Assault',
+    status: 'archived',
+    date: '2023-08-05',
+    description: 'Altercation on southbound platform. Latent prints lifted from turnstile.',
+    linkedSuspects: ['S-001', 'S-004'],
+    evidence: { dna: false, fingerprint: true, shoeprint: false },
+    analysisCompleted: true
+  }
 ];
