@@ -24,6 +24,7 @@ interface TraceContextType {
 
   // Suspects
   suspects: Suspect[];
+  setSuspects: (newList: Suspect[]) => void;
   updateSuspect: (id: string, updates: Partial<Suspect>) => void;
   getSuspectById: (id: string) => Suspect | undefined;
 }
@@ -87,6 +88,7 @@ export function TraceProvider({ children }: { children: ReactNode }) {
       updateCaseAnalysisStatus,
       getCaseById,
       suspects,
+      setSuspects,
       updateSuspect,
       getSuspectById
     }}>

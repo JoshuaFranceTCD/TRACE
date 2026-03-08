@@ -1,25 +1,22 @@
-import { useState } from "react";
-import { Dna, Fingerprint, Footprints, Database, Play } from "lucide-react";
+import React from "react";
+import { Dna, Fingerprint, Database, Play, Settings, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import FileUploadZone from "@/components/FileUploadZone";
 import type { EvidenceFiles, SuspectFiles } from "@/lib/forensic-data";
 
 interface EvidenceUploadPanelProps {
   onRunAnalysis: () => void;
+  evidence: EvidenceFiles;
+  setEvidence: React.Dispatch<React.SetStateAction<EvidenceFiles>>;
+  suspects: SuspectFiles;
+  setSuspects: React.Dispatch<React.SetStateAction<SuspectFiles>>;
+  rankingMode: 'mixed' | 'dna_only' | 'fingerprint_only';
+  setRankingMode: React.Dispatch<React.SetStateAction<'mixed' | 'dna_only' | 'fingerprint_only'>>;
 }
 
-const EvidenceUploadPanel = ({ onRunAnalysis }: EvidenceUploadPanelProps) => {
-  const [evidence, setEvidence] = useState<EvidenceFiles>({
-    dnaFile: null,
-    fingerprintFile: null,
-    shoeprintFile: null,
-  });
-
-  const [suspects, setSuspects] = useState<SuspectFiles>({
-    dnaFiles: [],
-    fingerprintFiles: [],
-    shoeprintFiles: [],
-  });
+const EvidenceUploadPanel = ({ onRunAnalysis, evidence, setEvidence, suspects, setSuspects, rankingMode, setRankingMode }: EvidenceUploadPanelProps) => {
+  // state is lifted to parent
 
   const canRun = evidence.dnaFile && evidence.fingerprintFile && suspects.dnaFiles.length > 0;
 
@@ -51,12 +48,12 @@ const EvidenceUploadPanel = ({ onRunAnalysis }: EvidenceUploadPanelProps) => {
             onFileSelect={(f) => setEvidence((e) => ({ ...e, fingerprintFile: f }))}
           />
           <FileUploadZone
-            label="Shoeprint Image"
-            description="Upload shoeprint impression"
-            acceptedFormats=".bmp,.png,.jpg,.tiff"
-            icon={<Footprints className="h-5 w-5" />}
-            file={evidence.shoeprintFile}
-            onFileSelect={(f) => setEvidence((e) => ({ ...e, shoeprintFile: f }))}
+            label="Hair Fibre Type (Crime Scene)"
+            description="Upload CSV with hair characteristics found at crime scene"
+            acceptedFormats=".csv"
+            icon={<Lock className="h-5 w-5" />}
+            file={evidence.hairFile}
+            onFileSelect={(f) => setEvidence((e) => ({ ...e, hairFile: f }))}
             optional
           />
         </div>
@@ -95,17 +92,62 @@ const EvidenceUploadPanel = ({ onRunAnalysis }: EvidenceUploadPanelProps) => {
             optional
           />
           <FileUploadZone
-            label="Suspect Shoeprints"
-            description="Upload suspect shoeprint images"
-            acceptedFormats=".bmp,.png,.jpg,.tiff"
-            icon={<Footprints className="h-5 w-5" />}
+            label="Suspect Hair Fibre Types"
+            description="Upload CSV files with suspect hair characteristics"
+            acceptedFormats=".csv"
+            icon={<Lock className="h-5 w-5" />}
             file={null}
             onFileSelect={() => {}}
             multiple
-            files={suspects.shoeprintFiles}
-            onFilesSelect={(f) => setSuspects((s) => ({ ...s, shoeprintFiles: f }))}
+            files={suspects.hairFiles}
+            onFilesSelect={(f) => setSuspects((s) => ({ ...s, hairFiles: f }))}
             optional
           />
+        </div>
+      </div>
+
+      {/* Ranking Configuration */}
+      <div>
+        <div className="flex items-center gap-2 mb-4">
+          <Settings className="h-4 w-4 text-primary" />
+          <h2 className="font-mono text-sm font-semibold text-foreground tracking-wider uppercase">
+            Analysis Configuration
+          </h2>
+        </div>
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs font-mono font-medium text-muted-foreground mb-2 block">
+              Ranking Method
+            </label>
+            <Select value={rankingMode} onValueChange={(value: 'mixed' | 'dna_only' | 'fingerprint_only') => setRankingMode(value)}>
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="mixed">
+                  <div className="flex items-center gap-2">
+                    <div className="flex gap-1">
+                      <Dna className="h-3 w-3" />
+                      <Fingerprint className="h-3 w-3" />
+                    </div>
+                    Mixed (50% DNA + 50% Fingerprint)
+                  </div>
+                </SelectItem>
+                <SelectItem value="dna_only">
+                  <div className="flex items-center gap-2">
+                    <Dna className="h-3 w-3" />
+                    DNA Only
+                  </div>
+                </SelectItem>
+                <SelectItem value="fingerprint_only">
+                  <div className="flex items-center gap-2">
+                    <Fingerprint className="h-3 w-3" />
+                    Fingerprint Only
+                  </div>
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </div>
 

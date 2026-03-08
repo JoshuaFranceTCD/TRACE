@@ -2,13 +2,17 @@ export interface Suspect {
   id: string;
   name: string;
   dnaScore: number;
+  dnaScoreRaw: number;
   fingerprintScore: number;
-  shoeprintScore: number | null;
+  fingerprintScoreRaw: number;
+  hairScore: number | null;
+  hairScoreRaw: number | null;
+  hairType: string | null;
   combinedScore: number;
   confidence: 'high' | 'medium' | 'low';
   dnaExplanation: string;
   fingerprintExplanation: string;
-  shoeprintExplanation: string | null;
+  hairExplanation: string | null;
   linkedCases: string[];
 }
 
@@ -32,24 +36,27 @@ export interface Case {
 export interface EvidenceFiles {
   dnaFile: File | null;
   fingerprintFile: File | null;
-  shoeprintFile: File | null;
+  hairFile: File | null;
 }
 
 export interface SuspectFiles {
   dnaFiles: File[];
   fingerprintFiles: File[];
-  shoeprintFiles: File[];
+  hairFiles: File[];
 }
 
-export type AnalysisStage = 'idle' | 'dna' | 'fingerprint' | 'shoeprint' | 'ranking' | 'complete';
+export type AnalysisStage = 'idle' | 'dna' | 'fingerprint' | 'hair' | 'ranking' | 'complete';
 
 export const MOCK_SUSPECTS: Suspect[] = [
   {
     id: 'S-001',
     name: 'Marcus J. Holloway',
     dnaScore: 94.7,
+    dnaScoreRaw: 287,
     fingerprintScore: 88.2,
+    fingerprintScoreRaw: 42,
     shoeprintScore: 72.5,
+    shoeprintScoreRaw: 18,
     combinedScore: 89.8,
     confidence: 'high',
     dnaExplanation: '13/13 STR loci matched with high allele frequency correlation. Random match probability: 1 in 8.2 billion.',
@@ -61,8 +68,11 @@ export const MOCK_SUSPECTS: Suspect[] = [
     id: 'S-002',
     name: 'Elena V. Kuznetsova',
     dnaScore: 31.2,
+    dnaScoreRaw: 95,
     fingerprintScore: 45.8,
+    fingerprintScoreRaw: 11,
     shoeprintScore: null,
+    shoeprintScoreRaw: null,
     combinedScore: 37.1,
     confidence: 'low',
     dnaExplanation: '5/13 STR loci partial match. Likely familial connection (sibling or parent). Random match probability: 1 in 420.',
@@ -74,8 +84,11 @@ export const MOCK_SUSPECTS: Suspect[] = [
     id: 'S-003',
     name: 'David T. Chen',
     dnaScore: 72.3,
+    dnaScoreRaw: 220,
     fingerprintScore: 65.9,
+    fingerprintScoreRaw: 25,
     shoeprintScore: 81.0,
+    shoeprintScoreRaw: 23,
     combinedScore: 72.4,
     confidence: 'medium',
     dnaExplanation: '10/13 STR loci matched. Two loci show microvariant alleles requiring further sequencing. RMP: 1 in 1.4 million.',
@@ -87,8 +100,11 @@ export const MOCK_SUSPECTS: Suspect[] = [
     id: 'S-004',
     name: 'Amara N. Okafor',
     dnaScore: 15.6,
+    dnaScoreRaw: 47,
     fingerprintScore: 22.1,
+    fingerprintScoreRaw: 5,
     shoeprintScore: 55.3,
+    shoeprintScoreRaw: 8,
     combinedScore: 25.8,
     confidence: 'low',
     dnaExplanation: '3/13 STR loci overlap. Likely coincidental match within population frequency. No familial indicators.',
@@ -100,8 +116,11 @@ export const MOCK_SUSPECTS: Suspect[] = [
     id: 'S-005',
     name: 'James R. Whitfield',
     dnaScore: 82.1,
+    dnaScoreRaw: 250,
     fingerprintScore: 76.4,
+    fingerprintScoreRaw: 32,
     shoeprintScore: 68.9,
+    shoeprintScoreRaw: 15,
     combinedScore: 78.2,
     confidence: 'medium',
     dnaExplanation: '11/13 STR loci matched. Two discrepant loci may indicate degraded sample. RMP: 1 in 56 million.',

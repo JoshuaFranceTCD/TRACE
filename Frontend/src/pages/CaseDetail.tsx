@@ -9,18 +9,26 @@ import AnalysisProgress from "@/components/AnalysisProgress";
 import SuspectTable from "@/components/SuspectTable";
 import ExplanationPanel from "@/components/ExplanationPanel";
 import EvidenceChart from "@/components/EvidenceChart";
+import FingerprintComparison from "@/components/FingerprintComparison";
 import { useTrace } from "@/lib/TraceContext";
+import type { EvidenceFiles, SuspectFiles, Suspect } from "@/lib/forensic-data";
 
 type AppPhase = 'upload' | 'analyzing' | 'results';
 
 const CaseDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { getCaseById, suspects, updateCaseStatus, updateCaseAnalysisStatus } = useTrace();
+  const { getCaseById, suspects, setSuspects, updateCaseStatus, updateCaseAnalysisStatus } = useTrace();
   
   const currentCase = getCaseById(id || "");
   const [phase, setPhase] = useState<AppPhase>(currentCase?.analysisCompleted ? 'results' : 'upload');
   const [selectedSuspect, setSelectedSuspect] = useState<string | null>(null);
+
+  // file states lifted for API interaction
+  const [evidenceFiles, setEvidenceFiles] = useState<EvidenceFiles>({ dnaFile: null, fingerprintFile: null, hairFile: null });
+  const [suspectFiles, setSuspectFiles] = useState<SuspectFiles>({ dnaFiles: [], fingerprintFiles: [], hairFiles: [] });
+  const [rankingMode, setRankingMode] = useState<'mixed' | 'dna_only' | 'fingerprint_only'>('mixed');
+  const [analysisWeights, setAnalysisWeights] = useState<{ dna: number; fingerprint: number } | null>(null);
 
   // Sync phase if currentCase changes (e.g., navigating to another case)
   useEffect(() => {
@@ -34,6 +42,16 @@ const CaseDetail = () => {
   const topSuspect = [...suspects].sort((a, b) => b.combinedScore - a.combinedScore)[0];
   const selected = suspects.find((s) => s.id === selectedSuspect) || topSuspect;
 
+  // Match suspect fingerprint file by id (filename without extension)
+  const getSuspectFingerprintFile = (suspectId: string): File | null => {
+    const idLower = suspectId.toLowerCase();
+    const match = suspectFiles.fingerprintFiles.find((f) => {
+      const baseName = f.name.replace(/\.[^/.]+$/, "").toLowerCase();
+      return baseName === idLower;
+    });
+    return match ?? null;
+  };
+
   if (!currentCase) {
     return (
       <div className="text-center py-20 animate-in fade-in">
@@ -45,8 +63,55 @@ const CaseDetail = () => {
     );
   }
 
-  const handleRunAnalysis = () => {
+  const handleRunAnalysis = async () => {
+    // send files to backend and update suspects list
     setPhase('analyzing');
+    try {
+      const form = new FormData();
+      if (evidenceFiles.dnaFile) form.append('evidence_dna', evidenceFiles.dnaFile);
+      if (evidenceFiles.fingerprintFile) form.append('evidence_fp', evidenceFiles.fingerprintFile);
+      if (evidenceFiles.hairFile) form.append('crime_hair', evidenceFiles.hairFile);
+      suspectFiles.dnaFiles.forEach(f => form.append('suspect_dna', f));
+      suspectFiles.fingerprintFiles.forEach(f => form.append('suspect_fp', f));
+      suspectFiles.hairFiles.forEach(f => form.append('suspect_hair', f));
+      form.append('ranking_mode', rankingMode);
+
+      const res = await fetch('/api/analysis', { method: 'POST', body: form });
+      const data = await res.json();
+      const suspectsData = Array.isArray(data) ? data : data.suspects;
+      const weights = data.weights ?? null;
+      setAnalysisWeights(weights);
+      // convert to Suspect interface used in context
+      const converted = suspectsData.map((s: any): Suspect => {
+        const combined = s.total_score; // Already 0-100 from backend
+        let confidence: Suspect['confidence'] = 'low';
+        if (combined > 75) confidence = 'high';
+        else if (combined > 40) confidence = 'medium';
+        return {
+          id: s.id,
+          name: s.id,
+          dnaScore: s.dna_score_percent,
+          dnaScoreRaw: s.dna_score,
+          fingerprintScore: s.fingerprint_score_percent,
+          fingerprintScoreRaw: s.fingerprint_score,
+          hairScore: s.hair_score_percent || null,
+          hairScoreRaw: s.hair_score || null,
+          hairType: s.hair_type || null,
+          combinedScore: combined,
+          confidence,
+          dnaExplanation: '',
+          fingerprintExplanation: '',
+          hairExplanation: null,
+          linkedCases: [],
+        };
+      });
+      // update context
+      setSuspects(converted);
+    } catch (err) {
+      console.error(err);
+      toast.error("Analysis failed. Please check files and try again.");
+      setPhase('upload');
+    }
   };
 
   const handleAnalysisComplete = () => {
@@ -61,10 +126,10 @@ const CaseDetail = () => {
   };
 
   const handleExportCSV = () => {
-    const headers = 'Rank,ID,Name,DNA,Fingerprint,Shoeprint,Combined,Confidence\n';
+    const headers = 'Rank,ID,Name,DNA,Fingerprint,Hair,Combined,Confidence\n';
     const sorted = [...suspects].sort((a, b) => b.combinedScore - a.combinedScore);
     const rows = sorted.map((s, i) =>
-      `${i + 1},${s.id},${s.name},${s.dnaScore},${s.fingerprintScore},${s.shoeprintScore ?? 'N/A'},${s.combinedScore},${s.confidence}`
+      `${i + 1},${s.id},${s.name},${s.dnaScore},${s.fingerprintScore},${s.hairScore ?? 'N/A'},${s.combinedScore},${s.confidence}`
     ).join('\n');
     const blob = new Blob([headers + rows], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
@@ -82,6 +147,7 @@ const CaseDetail = () => {
     }
     setPhase('upload');
     setSelectedSuspect(null);
+    setAnalysisWeights(null);
   };
 
   return (
@@ -119,7 +185,15 @@ const CaseDetail = () => {
       <div className="relative z-10 space-y-6">
         {phase === 'upload' && (
           <div className="max-w-2xl mx-auto">
-            <EvidenceUploadPanel onRunAnalysis={handleRunAnalysis} />
+            <EvidenceUploadPanel
+              evidence={evidenceFiles}
+              setEvidence={setEvidenceFiles}
+              suspects={suspectFiles}
+              setSuspects={setSuspectFiles}
+              rankingMode={rankingMode}
+              setRankingMode={setRankingMode}
+              onRunAnalysis={handleRunAnalysis}
+            />
           </div>
         )}
 
@@ -160,12 +234,23 @@ const CaseDetail = () => {
                   suspects={suspects}
                   selectedId={selectedSuspect}
                   onSelect={setSelectedSuspect}
+                  rankingMode={rankingMode}
                 />
                 <EvidenceChart suspects={suspects} />
               </div>
-              <div className="lg:col-span-2">
-                <div className="sticky top-6">
-                  <ExplanationPanel suspect={selected} topSuspect={topSuspect} />
+              <div className="lg:col-span-2 space-y-6">
+                <div className="sticky top-6 space-y-4">
+                  <ExplanationPanel
+                    suspect={selected}
+                    topSuspect={topSuspect}
+                    rankingMode={rankingMode}
+                    weights={analysisWeights}
+                  />
+                  <FingerprintComparison
+                    crimeSceneFile={evidenceFiles.fingerprintFile}
+                    suspectFile={getSuspectFingerprintFile(selected.id)}
+                    suspectName={selected.name}
+                  />
                 </div>
               </div>
             </div>

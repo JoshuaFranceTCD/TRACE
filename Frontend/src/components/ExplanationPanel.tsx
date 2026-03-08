@@ -1,10 +1,13 @@
 import type { Suspect } from "@/lib/forensic-data";
-import { Dna, Fingerprint, Footprints, TrendingUp, AlertTriangle } from "lucide-react";
+import { Dna, Fingerprint, Lightbulb, TrendingUp, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface ExplanationPanelProps {
   suspect: Suspect;
   topSuspect: Suspect;
+  rankingMode?: 'mixed' | 'dna_only' | 'fingerprint_only';
+  /** Computed weights from backend (DNA %, Fingerprint %). Used when rankingMode is mixed. */
+  weights?: { dna: number; fingerprint: number } | null;
 }
 
 const getScoreBar = (score: number) => {
@@ -16,32 +19,53 @@ const getScoreBar = (score: number) => {
   );
 };
 
-const ExplanationPanel = ({ suspect, topSuspect }: ExplanationPanelProps) => {
+const ExplanationPanel = ({ suspect, topSuspect, rankingMode = 'mixed', weights: computedWeights }: ExplanationPanelProps) => {
   const gap = topSuspect.combinedScore - suspect.combinedScore;
   const isTop = suspect.id === topSuspect.id;
+
+  const getWeights = () => {
+    // Hair does not influence combined score, always shows as 0% weight
+    switch (rankingMode) {
+      case 'dna_only':
+        return { dna: 100, fingerprint: 0, hair: 0 };
+      case 'fingerprint_only':
+        return { dna: 0, fingerprint: 100, hair: 0 };
+      default:
+        // Use dynamically computed weights from backend when available
+        if (computedWeights) {
+          return { dna: computedWeights.dna, fingerprint: computedWeights.fingerprint, hair: 0 };
+        }
+        return { dna: 50, fingerprint: 50, hair: 0 };
+    }
+  };
+
+  const weights = getWeights();
 
   const evidenceItems = [
     {
       icon: <Dna className="h-4 w-4" />,
       label: 'DNA Analysis',
       score: suspect.dnaScore,
+      rawScore: suspect.dnaScoreRaw,
       explanation: suspect.dnaExplanation,
-      weight: '40%',
+      weight: `${weights.dna}%`,
     },
     {
       icon: <Fingerprint className="h-4 w-4" />,
       label: 'Fingerprint Match',
       score: suspect.fingerprintScore,
+      rawScore: suspect.fingerprintScoreRaw,
       explanation: suspect.fingerprintExplanation,
-      weight: '35%',
+      weight: `${weights.fingerprint}%`,
     },
-    ...(suspect.shoeprintScore !== null
+    ...(suspect.hairScore !== null && suspect.hairScore > 0
       ? [{
-          icon: <Footprints className="h-4 w-4" />,
-          label: 'Shoeprint Comparison',
-          score: suspect.shoeprintScore,
-          explanation: suspect.shoeprintExplanation!,
-          weight: '25%',
+          icon: <Lightbulb className="h-4 w-4" />,
+          label: 'Hair Fibre Analysis',
+          score: suspect.hairScore,
+          rawScore: suspect.hairScoreRaw,
+          explanation: suspect.hairExplanation || `Hair type: ${suspect.hairType || 'Unknown'}`,
+          weight: `${weights.hair}%`,
         }]
       : []),
   ];
@@ -76,9 +100,12 @@ const ExplanationPanel = ({ suspect, topSuspect }: ExplanationPanelProps) => {
                 <span className="text-primary">{item.icon}</span>
                 <span className="text-xs font-mono font-medium text-foreground">{item.label}</span>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3">
                 <span className="text-[10px] font-mono text-muted-foreground">weight: {item.weight}</span>
-                <span className="text-sm font-mono font-bold text-foreground">{item.score}%</span>
+                <div className="text-right">
+                  <div className="text-sm font-mono font-bold text-foreground">{item.score.toFixed(1)}%</div>
+                  <div className="text-[10px] font-mono text-muted-foreground">raw: {item.rawScore}</div>
+                </div>
               </div>
             </div>
             {getScoreBar(item.score)}

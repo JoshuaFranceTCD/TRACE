@@ -1,7 +1,7 @@
 import os
 import cv2
 
-folder = "Suspect_Fingerprints"
+folder = "ex_Suspect_Fingerprints"
 
 # Load Evidence (Distored Fingerprint)
 suspect_file = cv2.imread("CrimeScene_Fingerprint.bmp")

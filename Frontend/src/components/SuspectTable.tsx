@@ -1,11 +1,12 @@
 import { cn } from "@/lib/utils";
 import type { Suspect } from "@/lib/forensic-data";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, Dna, Fingerprint, Lightbulb } from "lucide-react";
 
 interface SuspectTableProps {
   suspects: Suspect[];
   selectedId: string | null;
   onSelect: (id: string) => void;
+  rankingMode?: 'mixed' | 'dna_only' | 'fingerprint_only';
 }
 
 const getConfidenceColor = (confidence: string) => {
@@ -23,8 +24,35 @@ const getScoreColor = (score: number) => {
   return 'text-confidence-low';
 };
 
-const SuspectTable = ({ suspects, selectedId, onSelect }: SuspectTableProps) => {
+const SuspectTable = ({ suspects, selectedId, onSelect, rankingMode = 'mixed' }: SuspectTableProps) => {
   const sorted = [...suspects].sort((a, b) => b.combinedScore - a.combinedScore);
+
+  const getRankingModeDisplay = () => {
+    switch (rankingMode) {
+      case 'dna_only':
+        return (
+          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+            <Dna className="h-3 w-3" />
+            Ranked by DNA matching only
+          </div>
+        );
+      case 'fingerprint_only':
+        return (
+          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+            <Fingerprint className="h-3 w-3" />
+            Ranked by fingerprint matching only
+          </div>
+        );
+      default:
+        return (
+          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+            <Dna className="h-3 w-3" />
+            <Fingerprint className="h-3 w-3" />
+            Ranked by combined DNA + fingerprint matching
+          </div>
+        );
+    }
+  };
 
   return (
     <div className="rounded-lg border border-border overflow-hidden">
@@ -32,6 +60,7 @@ const SuspectTable = ({ suspects, selectedId, onSelect }: SuspectTableProps) => 
         <h3 className="font-mono text-xs font-semibold tracking-wider uppercase text-foreground">
           Ranked Suspect Analysis
         </h3>
+        {getRankingModeDisplay()}
       </div>
       <div className="divide-y divide-border">
         {sorted.map((suspect, index) => (
@@ -72,9 +101,9 @@ const SuspectTable = ({ suspects, selectedId, onSelect }: SuspectTableProps) => 
                 </p>
               </div>
               <div className="text-center">
-                <p className="text-[10px] font-mono text-muted-foreground">SP</p>
-                <p className={cn("text-sm font-mono font-semibold", suspect.shoeprintScore !== null ? getScoreColor(suspect.shoeprintScore) : "text-muted-foreground")}>
-                  {suspect.shoeprintScore !== null ? suspect.shoeprintScore : '—'}
+                <p className="text-[10px] font-mono text-muted-foreground">Hair</p>
+                <p className={cn("text-sm font-mono font-semibold", suspect.hairScore !== null ? getScoreColor(suspect.hairScore) : "text-muted-foreground")}>
+                  {suspect.hairScore !== null ? suspect.hairScore.toFixed(0) : '—'}
                 </p>
               </div>
             </div>

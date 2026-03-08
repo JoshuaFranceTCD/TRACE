@@ -12,14 +12,14 @@ const EvidenceChart = ({ suspects }: EvidenceChartProps) => {
     name: s.name.split(' ').pop(),
     DNA: s.dnaScore,
     Fingerprint: s.fingerprintScore,
-    Shoeprint: s.shoeprintScore ?? 0,
+    Hair: s.hairScore ?? 0,
     Combined: s.combinedScore,
   }));
 
   const colors = {
     DNA: 'hsl(185, 70%, 50%)',
     Fingerprint: 'hsl(145, 65%, 45%)',
-    Shoeprint: 'hsl(38, 92%, 55%)',
+    Hair: 'hsl(35, 85%, 55%)',
   };
 
   return (
@@ -54,7 +54,7 @@ const EvidenceChart = ({ suspects }: EvidenceChartProps) => {
             />
             <Bar dataKey="DNA" fill={colors.DNA} radius={[2, 2, 0, 0]} />
             <Bar dataKey="Fingerprint" fill={colors.Fingerprint} radius={[2, 2, 0, 0]} />
-            <Bar dataKey="Shoeprint" fill={colors.Shoeprint} radius={[2, 2, 0, 0]} />
+            <Bar dataKey="Hair" fill={colors.Hair} radius={[2, 2, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>
