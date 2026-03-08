@@ -5,6 +5,108 @@ from Bio import SeqIO
 from suspect import Suspect
 from analysis import compute_dna_score, compute_fingerprint_score, analyze
 import os
+try:
+    from google import genai
+except ImportError:
+    genai = None
+
+from dotenv import load_dotenv
+from pydantic import BaseModel
+from typing import List, Dict, Any
+
+load_dotenv()
+
+class ReportRequest(BaseModel):
+    suspects: List[Dict[str, Any]]
+    weights: Dict[str, float]
+
+def generate_forensic_report(suspects: List[Dict[str, Any]], weights: Dict[str, float]):
+    """
+    Call Gemini to generate a comprehensive forensic report.
+    """
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        return "Forensic report could not be generated because GEMINI_API_KEY is not configured."
+
+    if genai is None:
+        return "Forensic report skipped: pip install google-genai required."
+
+    system_prompt = (
+        "You are a Senior Forensic Expert. Generate a comprehensive forensic report based on the provided suspect analysis data. "
+        "Explain the ranking reasoning, detail evidence for each suspect, uncertainties, assumptions, and algorithms used. "
+        "Structure the report with clear sections: Overall Ranking Explanation, Individual Suspect Analysis, and Algorithm Explanations."
+    )
+
+    # Prepare data summary
+    data_summary = f"""
+Suspect Analysis Data:
+
+Weights used: DNA: {weights.get('dna_weight', 0)*100:.1f}%, Fingerprint: {weights.get('fp_weight', 0)*100:.1f}%
+
+Suspects (ranked by combined score):
+"""
+    for i, s in enumerate(sorted(suspects, key=lambda x: x.get('combinedScore', 0), reverse=True), 1):
+        data_summary += f"""
+{i}. {s.get('name', 'Unknown')} (ID: {s.get('id', 'N/A')})
+   - Combined Score: {s.get('combinedScore', 0):.3f}%
+   - DNA Score: {s.get('dnaScore', 0):.3f}%
+   - Fingerprint Score: {s.get('fingerprintScore', 0):.3f}%
+   - Hair Score: {s.get('hairScore', 0) or 'N/A'}
+"""
+
+    user_prompt = f"""
+{data_summary}
+
+Based on the above data, generate a detailed forensic report in Markdown format that includes:
+
+1. **Overall Ranking Explanation**: Explain how suspects were ranked, including the weighting of evidence types and why this ranking makes sense.
+
+2. **Individual Suspect Analysis**: For each suspect, provide:
+   - What evidence mattered most for their score
+   - What was uncertain or inconclusive
+   - Assumptions made in the analysis
+   - Short "case notes" summarizing their profile
+
+3. **Algorithm Explanations**: Briefly explain the algorithms used:
+   - DNA matching: Needleman-Wunsch sequence alignment
+   - Fingerprint matching: ORB feature detection with BFMatcher
+   - Hair analysis: CSV-based comparison
+   - Combined scoring: Weighted average with dynamic weights based on evidence quality
+
+Ensure the report is well-formatted with clear paragraphs, headings, and proper Markdown syntax. Use LaTeX for any mathematical equations if needed (e.g., $score = w_{{dna}} \\times dna + w_{{fp}} \\times fp$).
+Use professional forensic terminology and structure the report clearly.
+"""
+
+    full_content = f"{system_prompt}\n\n{user_prompt}"
+    models_to_try = [
+        "gemini-2.5-flash",
+        "gemini-2.5-pro",
+        "gemini-2.0-flash",
+        "gemini-1.5-flash",
+        "gemini-1.5-pro",
+        "gemini-pro",
+    ]
+    client = genai.Client(api_key=api_key)
+    last_error = None
+    for model in models_to_try:
+        try:
+            response = client.models.generate_content(
+                model=model,
+                contents=full_content,
+            )
+            text = (response.text or "").strip()
+            if not text:
+                continue
+            return text
+        except Exception as e:
+            last_error = e
+            err = str(e)
+            if "429" in err or "RESOURCE_EXHAUSTED" in err or "quota" in err.lower():
+                return "Forensic report skipped: API quota exceeded. Please wait 1 minute and try again, or try again tomorrow (daily limit resets at midnight Pacific time)."
+            if "404" in err or "NOT_FOUND" in err:
+                continue
+            return f"Forensic report could not be generated due to an error: {e}"
+    return f"Forensic report could not be generated: no model available. Last error: {last_error}"
 
 app = FastAPI()
 
@@ -26,6 +128,11 @@ crime_scene_fingerprint_path = "Data/BACSA-Crime-Scene-Fingerprints-main/CrimeSc
 @app.get("/ping")
 def ping():
     return {"status": "alive"}
+
+@app.post("/api/generate-gemini-report")
+def generate_gemini_report_endpoint(request: ReportRequest):
+    report = generate_forensic_report(request.suspects, request.weights)
+    return {"report": report}
 
 
 @app.get("/api/suspects")

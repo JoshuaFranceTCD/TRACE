@@ -1,9 +1,14 @@
 import { useState, useMemo, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Download, FileSpreadsheet, FileText, RotateCcw, ArrowLeft, Archive, CheckCircle2 } from "lucide-react";
+import { Download, FileSpreadsheet, FileText, RotateCcw, ArrowLeft, Archive, CheckCircle2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import ReactMarkdown from 'react-markdown';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
+import 'katex/dist/katex.min.css';
 import EvidenceUploadPanel from "@/components/EvidenceUploadPanel";
 import AnalysisProgress from "@/components/AnalysisProgress";
 import SuspectTable from "@/components/SuspectTable";
@@ -29,6 +34,9 @@ const CaseDetail = () => {
   const [suspectFiles, setSuspectFiles] = useState<SuspectFiles>({ dnaFiles: [], fingerprintFiles: [], hairFiles: [] });
   const [rankingMode, setRankingMode] = useState<'mixed' | 'dna_only' | 'fingerprint_only'>('mixed');
   const [analysisWeights, setAnalysisWeights] = useState<{ dna: number; fingerprint: number } | null>(null);
+  const [geminiReport, setGeminiReport] = useState<string | null>(null);
+  const [isReportDialogOpen, setIsReportDialogOpen] = useState(false);
+  const [isGeneratingReport, setIsGeneratingReport] = useState(false);
 
   // Sync phase if currentCase changes (e.g., navigating to another case)
   useEffect(() => {
@@ -150,6 +158,42 @@ const CaseDetail = () => {
     setAnalysisWeights(null);
   };
 
+  const handleGenerateGeminiReport = async () => {
+    if (!suspects.length) {
+      toast.error("No suspect data available");
+      return;
+    }
+    setIsGeneratingReport(true);
+    try {
+      const data = {
+        suspects: suspects.map(s => ({
+          id: s.id,
+          name: s.name,
+          dnaScore: s.dnaScore,
+          fingerprintScore: s.fingerprintScore,
+          hairScore: s.hairScore,
+          combinedScore: s.combinedScore
+        })),
+        weights: {
+          dna_weight: analysisWeights?.dna || 0.5,
+          fp_weight: analysisWeights?.fingerprint || 0.5
+        }
+      };
+      const response = await fetch('http://localhost:8000/api/generate-gemini-report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+      const result = await response.json();
+      setGeminiReport(result.report);
+      setIsReportDialogOpen(true);
+    } catch (error) {
+      toast.error("Failed to generate Gemini report");
+    } finally {
+      setIsGeneratingReport(false);
+    }
+  };
+
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -216,9 +260,18 @@ const CaseDetail = () => {
                   <FileSpreadsheet className="h-3 w-3 mr-1" />
                   Export CSV
                 </Button>
-                <Button variant="cyber" size="sm" onClick={() => toast.info("PDF export coming soon")}>
-                  <FileText className="h-3 w-3 mr-1" />
-                  Export PDF
+                <Button variant="cyber" size="sm" onClick={handleGenerateGeminiReport} disabled={isGeneratingReport}>
+                  {isGeneratingReport ? (
+                    <>
+                      <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <FileText className="h-3 w-3 mr-1" />
+                      Generate Gemini Report
+                    </>
+                  )}
                 </Button>
                 <Button variant="ghost" size="sm" onClick={handleReset} className="text-muted-foreground">
                   <RotateCcw className="h-3 w-3 mr-1" />
@@ -257,6 +310,35 @@ const CaseDetail = () => {
           </div>
         )}
       </div>
+
+      <Dialog open={isReportDialogOpen} onOpenChange={setIsReportDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Gemini Forensic Report</DialogTitle>
+          </DialogHeader>
+          <div className="text-sm max-h-96 overflow-y-auto prose prose-sm max-w-none">
+            <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>
+              {geminiReport || ''}
+            </ReactMarkdown>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => {
+              if (geminiReport) {
+                const blob = new Blob([geminiReport], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'gemini_forensic_report.txt';
+                a.click();
+                URL.revokeObjectURL(url);
+                toast.success("Report downloaded");
+              }
+            }}>
+              Download
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

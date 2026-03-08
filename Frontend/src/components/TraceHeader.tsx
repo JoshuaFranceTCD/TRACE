@@ -1,4 +1,4 @@
-import { Dna, Fingerprint, Footprints, Shield, Database, LayoutDashboard, LogOut } from "lucide-react";
+import { Dna, Fingerprint, Feather, Shield, Database, LayoutDashboard, LogOut } from "lucide-react";
 import heroBg from "@/assets/hero-bg.jpg";
 import { Link, useLocation } from "react-router-dom";
 import { useTrace } from "@/lib/TraceContext";
@@ -31,7 +31,7 @@ const TraceHeader = () => {
             {[
               { icon: Dna, label: "DNA Analytics" },
               { icon: Fingerprint, label: "Print Match" },
-              { icon: Footprints, label: "Shoeprint" },
+              { icon: Feather, label: "Hair Analysis" },
             ].map(({ icon: Icon, label }) => (
               <div key={label} className="flex items-center gap-1.5 text-xs text-muted-foreground font-mono">
                 <Icon className="h-3 w-3 text-primary/60" />

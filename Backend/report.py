@@ -1,31 +1,17 @@
 import cv2
 import os
 import glob
+import argparse
 try:
     from google import genai
 except ImportError:
     genai = None
 
-CRIME_IMAGE_PATH = "/Users/zhangshiyi/Documents/CrimeScene_Fingerprints.BMP"
-SUSPECT_FOLDER   = "/Users/zhangshiyi/Desktop/FingerprintProject/Suspect_Fingerprints"
+from dotenv import load_dotenv
+
+load_dotenv()
+
 MAX_MATCH_LINES_TO_DRAW = 50
-GEMINI_API_KEY_DEFAULT = "AIzaSyCdZaMtKBNsevSboH_APHD8fi2L-Jo_PlE"
-def find_crime_image():
-    """Return path to the crime scene image, handling .BMP and .bmp."""
-    candidates = []
-    for ext in ("BMP", "bmp"):
-        path = f"CrimeScene_Fingerprints.{ext}"
-        if os.path.isfile(path):
-            candidates.append(path)
-    if not candidates:
-        raise FileNotFoundError(
-            "Crime scene image not found. Expected 'CrimeScene_Fingerprints.BMP' or '.bmp' "
-            "in the current directory."
-        )
-    # Prefer exact case as given in config if exists, else first found
-    if os.path.isfile(CRIME_IMAGE_PATH):
-        return CRIME_IMAGE_PATH
-    return candidates[0]
 
 
 def load_suspect_images(folder):
@@ -173,7 +159,7 @@ def generate_forensic_report(best_suspect_name, match_score, num_keypoints, unce
     """
     Call Gemini to generate a professional forensic report.
     """
-    api_key = os.getenv("GEMINI_API_KEY") or GEMINI_API_KEY_DEFAULT
+    api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
         print("WARNING: GEMINI_API_KEY environment variable is not set. Skipping AI report.")
         return "Forensic report could not be generated because GEMINI_API_KEY is not configured."
@@ -232,17 +218,18 @@ for inclusion in a case file.
 
 
 def main():
+    parser = argparse.ArgumentParser(description="Fingerprint matching report generator")
+    parser.add_argument("crime_image_path", help="Path to the crime scene fingerprint image")
+    parser.add_argument("suspect_folder", help="Path to the folder containing suspect fingerprint images")
+    args = parser.parse_args()
+
     # Prepare ORB and matcher
     orb = cv2.ORB_create(nfeatures=5000)
     bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
 
-    # Load crime scene image (try CRIME_IMAGE_PATH, then current dir)
-    crime_image_path = CRIME_IMAGE_PATH
-    if os.path.isfile(crime_image_path):
-        crime_img = cv2.imread(crime_image_path, cv2.IMREAD_GRAYSCALE)
-    else:
-        crime_image_path = find_crime_image()
-        crime_img = cv2.imread(crime_image_path, cv2.IMREAD_GRAYSCALE)
+    # Load crime scene image
+    crime_image_path = args.crime_image_path
+    crime_img = cv2.imread(crime_image_path, cv2.IMREAD_GRAYSCALE)
     if crime_img is None:
         raise RuntimeError(f"Failed to read crime scene image '{crime_image_path}'.")
 
@@ -251,7 +238,8 @@ def main():
         raise RuntimeError("No ORB features detected in the crime scene image.")
 
     # Load suspects
-    suspects = load_suspect_images(SUSPECT_FOLDER)
+    suspect_folder = args.suspect_folder
+    suspects = load_suspect_images(suspect_folder)
 
     best_score = -1.0
     best_suspect_name = None

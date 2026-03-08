@@ -21,7 +21,7 @@ export default function CreateCaseDialog({ open, onOpenChange }: { open: boolean
       status: 'active',
       date: new Date().toISOString().split('T')[0],
       linkedSuspects: [],
-      evidence: { dna: false, fingerprint: false, shoeprint: false }
+      evidence: { dna: false, fingerprint: false, hair: false }
     });
     
     setTitle("");

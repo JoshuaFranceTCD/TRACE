@@ -8,6 +8,7 @@ export interface Suspect {
   hairScore: number | null;
   hairScoreRaw: number | null;
   hairType: string | null;
+  shoeprintExplanation?: string;
   combinedScore: number;
   confidence: 'high' | 'medium' | 'low';
   dnaExplanation: string;
@@ -19,7 +20,7 @@ export interface Suspect {
 export interface CaseEvidence {
   dna: boolean;
   fingerprint: boolean;
-  shoeprint: boolean;
+  hair: boolean;
 }
 
 export interface Case {
@@ -55,13 +56,14 @@ export const MOCK_SUSPECTS: Suspect[] = [
     dnaScoreRaw: 287,
     fingerprintScore: 88.2,
     fingerprintScoreRaw: 42,
-    shoeprintScore: 72.5,
-    shoeprintScoreRaw: 18,
+    hairScore: null,
+    hairScoreRaw: null,
+    hairType: null,
     combinedScore: 89.8,
     confidence: 'high',
     dnaExplanation: '13/13 STR loci matched with high allele frequency correlation. Random match probability: 1 in 8.2 billion.',
     fingerprintExplanation: '12 minutiae points matched across ridge patterns. Level 2 detail comparison confirms arch-loop consistency.',
-    shoeprintExplanation: 'Partial tread pattern match (Nike Air Max 90, Size 11). Wear pattern consistent at 68% overlay.',
+    hairExplanation: null,
     linkedCases: ['C-1042', 'C-0988'],
   },
   {
@@ -71,13 +73,14 @@ export const MOCK_SUSPECTS: Suspect[] = [
     dnaScoreRaw: 95,
     fingerprintScore: 45.8,
     fingerprintScoreRaw: 11,
-    shoeprintScore: null,
-    shoeprintScoreRaw: null,
+    hairScore: null,
+    hairScoreRaw: null,
+    hairType: null,
     combinedScore: 37.1,
     confidence: 'low',
     dnaExplanation: '5/13 STR loci partial match. Likely familial connection (sibling or parent). Random match probability: 1 in 420.',
     fingerprintExplanation: '4 minutiae points matched. Ridge flow pattern diverges at delta region. Inconclusive.',
-    shoeprintExplanation: null,
+    hairExplanation: null,
     linkedCases: ['C-1042'],
   },
   {
@@ -87,13 +90,14 @@ export const MOCK_SUSPECTS: Suspect[] = [
     dnaScoreRaw: 220,
     fingerprintScore: 65.9,
     fingerprintScoreRaw: 25,
-    shoeprintScore: 81.0,
-    shoeprintScoreRaw: 23,
+    hairScore: null,
+    hairScoreRaw: null,
+    hairType: null,
     combinedScore: 72.4,
     confidence: 'medium',
     dnaExplanation: '10/13 STR loci matched. Two loci show microvariant alleles requiring further sequencing. RMP: 1 in 1.4 million.',
     fingerprintExplanation: '8 minutiae points matched. Core pattern consistent but bifurcation count diverges in ulnar region.',
-    shoeprintExplanation: 'Strong tread match (Adidas Ultraboost, Size 10.5). Wear erosion pattern aligns at 79% confidence.',
+    hairExplanation: null,
     linkedCases: ['C-1055'],
   },
   {
@@ -103,13 +107,14 @@ export const MOCK_SUSPECTS: Suspect[] = [
     dnaScoreRaw: 47,
     fingerprintScore: 22.1,
     fingerprintScoreRaw: 5,
-    shoeprintScore: 55.3,
-    shoeprintScoreRaw: 8,
+    hairScore: null,
+    hairScoreRaw: null,
+    hairType: null,
     combinedScore: 25.8,
     confidence: 'low',
     dnaExplanation: '3/13 STR loci overlap. Likely coincidental match within population frequency. No familial indicators.',
     fingerprintExplanation: '2 minutiae points matched. Pattern type mismatch (whorl vs. loop). Exclusion recommended.',
-    shoeprintExplanation: 'Generic tread pattern (common athletic shoe). Size matches but brand undetermined.',
+    hairExplanation: null,
     linkedCases: ['C-0988'],
   },
   {
@@ -119,12 +124,14 @@ export const MOCK_SUSPECTS: Suspect[] = [
     dnaScoreRaw: 250,
     fingerprintScore: 76.4,
     fingerprintScoreRaw: 32,
-    shoeprintScore: 68.9,
-    shoeprintScoreRaw: 15,
+    hairScore: null,
+    hairScoreRaw: null,
+    hairType: null,
     combinedScore: 78.2,
     confidence: 'medium',
     dnaExplanation: '11/13 STR loci matched. Two discrepant loci may indicate degraded sample. RMP: 1 in 56 million.',
     fingerprintExplanation: '10 minutiae points matched. Ridge count between core and delta consistent. Partial smudge on index finger.',
+    hairExplanation: null,
     shoeprintExplanation: 'Moderate match (New Balance 574, Size 11). Heel wear pattern partially consistent.',
     linkedCases: ['C-1042', 'C-1055'],
   },
@@ -138,7 +145,7 @@ export const MOCK_CASES: Case[] = [
     date: '2023-11-14',
     description: 'Break-in at the contemporary art gallery. Primary evidence collected at point of entry.',
     linkedSuspects: ['S-003', 'S-005'],
-    evidence: { dna: true, fingerprint: true, shoeprint: true }
+    evidence: { dna: true, fingerprint: true, hair: true }
   },
   {
     id: 'C-1042',
@@ -147,7 +154,7 @@ export const MOCK_CASES: Case[] = [
     date: '2023-10-28',
     description: 'Suspicious fire at abandoned storage facility. DNA recovered from discarded matchbook.',
     linkedSuspects: ['S-001', 'S-002', 'S-005'],
-    evidence: { dna: true, fingerprint: false, shoeprint: false }
+    evidence: { dna: true, fingerprint: false, hair: false }
   },
   {
     id: 'C-0988',
@@ -156,7 +163,7 @@ export const MOCK_CASES: Case[] = [
     date: '2023-08-05',
     description: 'Altercation on southbound platform. Latent prints lifted from turnstile.',
     linkedSuspects: ['S-001', 'S-004'],
-    evidence: { dna: false, fingerprint: true, shoeprint: false },
+    evidence: { dna: false, fingerprint: true, hair: false },
     analysisCompleted: true
   }
 ];

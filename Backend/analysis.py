@@ -272,7 +272,7 @@ def parse_suspect_hair_types(csv_files):
         reader = csv.DictReader(text_stream)
         
         for row in reader:
-            suspect_id = row.get('suspect_id', '').strip()
+            suspect_id = row.get('suspect_id', '').strip().lower()
             if suspect_id:
                 hair_info = {
                     'hair_color': row.get('hair_color', '').strip(),
@@ -349,10 +349,15 @@ def analyze(evidence_dna_file, evidence_fp_file, suspect_dna_files, suspect_fp_f
                 suspect.fingerprint_score = raw_fp_score
                 
                 # Compute Hair Score
-                if crime_hair_info and raw_id in suspect_hair_map:
-                    suspect.hair_score = compute_hair_score(suspect_hair_map[raw_id], crime_hair_info)
+                hair_lookup_id = raw_id.lower()
+                if crime_hair_info and hair_lookup_id in suspect_hair_map:
+                    hair_info = suspect_hair_map[hair_lookup_id]
+                    suspect.hair_score = compute_hair_score(hair_info, crime_hair_info)
+                    # Set hair_type as formatted string for display
+                    suspect.hair_type = f"{hair_info.get('hair_color', 'Unknown')} {hair_info.get('texture', 'Unknown')} {hair_info.get('length', 'Unknown')}".strip()
                 else:
                     suspect.hair_score = 0
+                    suspect.hair_type = None
                 
                 suspects.append(suspect)
 
@@ -371,6 +376,9 @@ def analyze(evidence_dna_file, evidence_fp_file, suspect_dna_files, suspect_fp_f
                 # Fingerprint Score 
                 s.norm_fp = s.fingerprint_score / 25.0 if s.fingerprint_score else 0.0 # scale to norm_fp space (0-1)
                 s.fingerprint_score_percent = (s.fingerprint_score / 25.0) * 100.0 if s.fingerprint_score else 0.0
+                
+                # Hair Score (not included in ranking, but formatted for display)
+                s.hair_score_percent = round(s.hair_score, 3) if s.hair_score else 0.0
                 
                 # Combined Weighted Score
                 s.total_score = (dna_weight * s.norm_dna + fp_weight * s.norm_fp) * 100.0
