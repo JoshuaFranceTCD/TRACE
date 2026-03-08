@@ -130,7 +130,7 @@ const EvidenceUploadPanel = ({ onRunAnalysis, evidence, setEvidence, suspects, s
                       <Dna className="h-3 w-3" />
                       <Fingerprint className="h-3 w-3" />
                     </div>
-                    Mixed (50% DNA + 50% Fingerprint)
+                    Mixed ( DNA + Fingerprint)
                   </div>
                 </SelectItem>
                 <SelectItem value="dna_only">

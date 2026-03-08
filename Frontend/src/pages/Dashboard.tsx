@@ -43,11 +43,6 @@ const Dashboard = () => {
               </Badge>
             );
           })}
-          {caseData.linkedSuspects.length > 0 && (
-             <Badge variant="outline" className="text-xs font-mono border-orange-500/30 text-orange-400">
-               {caseData.linkedSuspects.length} SUSPECTS
-             </Badge>
-          )}
         </div>
       </CardContent>
       <CardFooter>
