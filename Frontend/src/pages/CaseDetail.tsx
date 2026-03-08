@@ -8,6 +8,8 @@ import { toast } from "sonner";
 import ReactMarkdown from 'react-markdown';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
+
+const API_BASE = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
 import 'katex/dist/katex.min.css';
 import EvidenceUploadPanel from "@/components/EvidenceUploadPanel";
 import AnalysisProgress from "@/components/AnalysisProgress";
@@ -84,7 +86,7 @@ const CaseDetail = () => {
       suspectFiles.hairFiles.forEach(f => form.append('suspect_hair', f));
       form.append('ranking_mode', rankingMode);
 
-      const res = await fetch('/api/analysis', { method: 'POST', body: form });
+      const res = await fetch(`${API_BASE}/api/analysis`, { method: 'POST', body: form });
       const data = await res.json();
       const suspectsData = Array.isArray(data) ? data : data.suspects;
       const weights = data.weights ?? null;
@@ -179,7 +181,7 @@ const CaseDetail = () => {
           fp_weight: analysisWeights?.fingerprint || 0.5
         }
       };
-      const response = await fetch('http://localhost:8000/api/generate-gemini-report', {
+      const response = await fetch(`${API_BASE}/api/generate-gemini-report`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)

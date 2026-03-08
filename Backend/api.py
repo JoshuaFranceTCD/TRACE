@@ -120,10 +120,10 @@ app.add_middleware(
 )
 
 # Paths to data
-suspect_dna_path = "Data/BACSA-Suspect-Database-main/Suspect_DNA.fasta"
-crime_scene_dna_path = "Data/BACSA-Crime-Scene-DNA-main/CrimeScene_DNA.fasta"
-suspect_fingerprints_folder = "Data/BACSA-Suspect-Database-main/Suspect_Fingerprints"
-crime_scene_fingerprint_path = "Data/BACSA-Crime-Scene-Fingerprints-main/CrimeScene_Fingerprint.bmp"
+suspect_dna_path = "Data/Suspect_DNA.fasta"
+crime_scene_dna_path = "Data/CrimeScene_DNA.fasta"
+suspect_fingerprints_folder = "Data/Suspect_Fingerprints"
+crime_scene_fingerprint_path = "Data/CrimeScene_Fingerprint.BMP"
 
 @app.get("/ping")
 def ping():
@@ -212,4 +212,6 @@ def run_analysis(
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app)
+    import os
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)
