@@ -90,60 +90,98 @@ def compute_dna_score(suspect_dna, crime_dna):
     """Compute DNA alignment score using Needleman-Wunsch."""
     return seq_align(suspect_dna, crime_dna)
 
+import cv2
+import numpy as np
+import os
+import tempfile
+import io
+from Bio import SeqIO
+
 def compute_fingerprint_score(suspect_fp_path, crime_fp_path):
     """
-    Compute fingerprint matching score using AKAZE + ratio test + RANSAC.
-
-    Returns a raw integer score (0+). Higher is better.
-    We use the number of geometric inliers after RANSAC as the score,
-    which is more stable than a fixed Hamming distance cutoff.
+    Compute fingerprint matching score using ORB + ratio test + RANSAC.
+    Returns the number of geometric inliers.
     """
-    if not os.path.exists(crime_fp_path):
+
+    print("\n--- Fingerprint Debug ---")
+    print("Crime FP:", crime_fp_path)
+    print("Suspect FP:", suspect_fp_path)
+
+    if not os.path.exists(crime_fp_path) or not os.path.exists(suspect_fp_path):
+        print("❌ One or both file paths do not exist")
         return 0
 
+    # Load images
     crime_img = cv2.imread(crime_fp_path, cv2.IMREAD_GRAYSCALE)
-    if crime_img is None:
-        return 0
-    
-    if not os.path.exists(suspect_fp_path):
-        return 0
     suspect_img = cv2.imread(suspect_fp_path, cv2.IMREAD_GRAYSCALE)
-    if suspect_img is None:
+
+    if crime_img is None or suspect_img is None:
+        print("❌ Failed to load images")
         return 0
 
-    # AKAZE produces binary descriptors, compatible with Hamming distance.
-    akaze = cv2.AKAZE_create()
-    kp1, des1 = akaze.detectAndCompute(crime_img, None)
-    kp2, des2 = akaze.detectAndCompute(suspect_img, None)
-    if des1 is None or des2 is None or len(kp1) < 4 or len(kp2) < 4:
+    print("✅ Images loaded")
+    print("Crime shape:", crime_img.shape)
+    print("Suspect shape:", suspect_img.shape)
+
+    # --- Preprocessing (helps fingerprint feature detection) ---
+    crime_img = cv2.equalizeHist(crime_img)
+    suspect_img = cv2.equalizeHist(suspect_img)
+
+    crime_img = cv2.GaussianBlur(crime_img, (5,5), 0)
+    suspect_img = cv2.GaussianBlur(suspect_img, (5,5), 0)
+
+    # --- Feature detection ---
+    detector = cv2.ORB_create(nfeatures=2000)
+
+    kp1, des1 = detector.detectAndCompute(crime_img, None)
+    kp2, des2 = detector.detectAndCompute(suspect_img, None)
+
+    print("Crime keypoints:", 0 if kp1 is None else len(kp1))
+    print("Suspect keypoints:", 0 if kp2 is None else len(kp2))
+
+    if des1 is None or des2 is None:
+        print("❌ No descriptors found")
         return 0
 
+    if len(kp1) < 4 or len(kp2) < 4:
+        print("❌ Not enough keypoints")
+        return 0
+
+    # --- Descriptor matching ---
     bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=False)
     knn = bf.knnMatch(des1, des2, k=2)
-    if not knn:
-        return 0
 
-    # Lowe ratio test (typical 0.75–0.85). Use 0.8 as a stable default.
+    print("Total KNN matches:", len(knn))
+
+    # --- Lowe ratio test ---
     good = []
-    for pair in knn:
-        if len(pair) < 2:
-            continue
-        m, n = pair
-        if m.distance < 0.8 * n.distance:
-            good.append(m)
+    for m_n in knn:
+        if len(m_n) == 2:
+            m, n = m_n
+            if m.distance < 0.9 * n.distance:   # more lenient
+                good.append(m)
+
+    print("Good matches after ratio test:", len(good))
 
     if len(good) < 4:
+        print("❌ Not enough good matches for RANSAC")
         return 0
 
-    # RANSAC expects Nx1x2 float32 arrays.
-    import numpy as np
-    src = np.float32([kp1[m.queryIdx].pt for m in good]).reshape(-1, 1, 2)
-    dst = np.float32([kp2[m.trainIdx].pt for m in good]).reshape(-1, 1, 2)
+    # --- Prepare RANSAC ---
+    src_pts = np.float32([kp1[m.queryIdx].pt for m in good]).reshape(-1,1,2)
+    dst_pts = np.float32([kp2[m.trainIdx].pt for m in good]).reshape(-1,1,2)
 
-    H, mask = cv2.findHomography(src, dst, cv2.RANSAC, ransacReprojThreshold=5.0)
+    print("Running RANSAC with", len(src_pts), "points")
+
+    H, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, 5.0)
+
     if mask is None:
+        print("❌ RANSAC failed")
         return 0
+
     inliers = int(mask.sum())
+    print("✅ RANSAC inliers:", inliers)
+
     return inliers
 
 
@@ -285,130 +323,106 @@ def parse_suspect_hair_types(csv_files):
     return suspect_hair_data
 
 
-def analyze(evidence_dna_file, evidence_fp_file, suspect_dna_files, suspect_fp_files, dna_weight=0.5, fp_weight=0.5, hair_weight=0.0, crime_hair_type=None, crime_hair_file=None, suspect_hair_files=None, compute_dynamic_weights=False):
-    # Load crime scene hair type from file if provided
-    crime_hair_info = None
-    if crime_hair_file:
-        crime_hair_info = parse_crime_scene_hair(crime_hair_file)
+def analyze(evidence_dna_file, evidence_fp_file, suspect_dna_files, suspect_fp_files, 
+            dna_weight=0.5, fp_weight=0.5, hair_weight=0.0, 
+            crime_hair_file=None, suspect_hair_files=None, compute_dynamic_weights=False):
     
-    # Parse suspect hair types from files
-    suspect_hair_map = {}
-    if suspect_hair_files:
-        suspect_hair_map = parse_suspect_hair_types(suspect_hair_files)
+    # 1. Parse Hair Evidence
+    crime_hair_info = parse_crime_scene_hair(crime_hair_file) if crime_hair_file else None
+    suspect_hair_map = parse_suspect_hair_types(suspect_hair_files) if suspect_hair_files else {}
     
-    # --- Read crime scene DNA ---
-    # Reset stream to be safe
+    # 2. Process Crime Scene DNA
     evidence_dna_file.file.seek(0)
     crime_scene_text = io.TextIOWrapper(evidence_dna_file.file, encoding="utf-8")
-    crime_scene_records = list(SeqIO.parse(crime_scene_text, "fasta"))
-    crime_record = crime_scene_records[0]
-    crime_scene_dna_raw = str(crime_record.seq).replace(" ", "")
-    crime_scene_dna = crime_scene_dna_raw.replace("N", "")
-    fasta_header = getattr(crime_record, "description", None) or crime_record.id
+    crime_records = list(SeqIO.parse(crime_scene_text, "fasta"))
+    crime_scene_dna = str(crime_records[0].seq).replace(" ", "").replace("N", "")
+    fasta_header = getattr(crime_records[0], "description", None) or crime_records[0].id
 
-    # --- Handle crime scene fingerprint ---
+    # 3. Process Crime Scene Fingerprint
     crime_fp_path = None
     if evidence_fp_file:
-        ext = os.path.splitext(getattr(evidence_fp_file, "filename", "") or "")[1] or ".bmp"
+        ext = os.path.splitext(evidence_fp_file.filename)[1] or ".bmp"
         with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as tmp_fp:
             tmp_fp.write(evidence_fp_file.file.read())
             crime_fp_path = tmp_fp.name
 
-    # --- Compute dynamic weights when in mixed mode ---
+    # 4. Handle Dynamic Weights
     if compute_dynamic_weights and dna_weight > 0 and fp_weight > 0:
-        dna_weight, fp_weight = compute_evidence_weights(
-            crime_scene_dna_raw, crime_fp_path, fasta_header
-        )
+        from report import compute_evidence_weights
+        dna_weight, fp_weight = compute_evidence_weights(str(crime_records[0].seq), crime_fp_path, fasta_header)
+
+    # 5. Normalize Fingerprint File Map (Fixes ID mismatch)
+    # Maps lowercase filename (without extension) to the file object
+    fp_map = {os.path.splitext(up.filename)[0].lower().strip(): up for up in suspect_fp_files or []}
 
     suspects = []
-    fp_map = {os.path.splitext(up.filename)[0]: up for up in suspect_fp_files or []}
-
     try:
-        # --- First pass: compute raw scores ---
         for dna_upload in suspect_dna_files:
             dna_upload.file.seek(0)
             text_stream = io.TextIOWrapper(dna_upload.file, encoding="utf-8")
             
             for record in SeqIO.parse(text_stream, "fasta"):
-                suspect_id = record.id.split(" | ")[0]
-                dna = str(record.seq)
-                suspect = Suspect(suspect_id, dna)
+                # Standardize ID from FASTA
+                raw_id = record.id.split(" | ")[0].strip()
+                lookup_id = raw_id.lower()
+                
+                suspect = Suspect(raw_id, str(record.seq))
+                
+                # Compute DNA Score
+                suspect.dna_score = compute_dna_score(str(record.seq), crime_scene_dna)
 
-                # DNA score
-                suspect.dna_score = compute_dna_score(dna, crime_scene_dna)
-
-                # Fingerprint score
+                # Compute Fingerprint Score
                 raw_fp_score = 0
-                if suspect_id in fp_map and crime_fp_path:
-                    fp_upload = fp_map[suspect_id]
-                    fp_ext = os.path.splitext(getattr(fp_upload, "filename", "") or "")[1] or ".bmp"
-                    with tempfile.NamedTemporaryFile(delete=False, suffix=fp_ext) as tmp:
+                if lookup_id in fp_map and crime_fp_path:
+                    fp_upload = fp_map[lookup_id]
+                    fp_upload.file.seek(0) # Ensure we read from the start
+                    
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=".bmp") as tmp:
                         tmp.write(fp_upload.file.read())
                         suspect_fp_path = tmp.name
                     
-                    try:
-                        raw_fp_score = compute_fingerprint_score(suspect_fp_path, crime_fp_path)
-                    finally:
-                        os.remove(suspect_fp_path) # Clean up suspect image
+                    raw_fp_score = compute_fingerprint_score(suspect_fp_path, crime_fp_path)
+                    if os.path.exists(suspect_fp_path):
+                        os.remove(suspect_fp_path)
                 
                 suspect.fingerprint_score = raw_fp_score
                 
-                # Hair fibre score
-                if crime_hair_info and suspect_id in suspect_hair_map:
-                    suspect_hair_info = suspect_hair_map[suspect_id]
-                    suspect.hair_score = compute_hair_score(suspect_hair_info, crime_hair_info)
-                    suspect.hair_type = f"{suspect_hair_info.get('hair_color', '')} ({suspect_hair_info.get('texture', '')}, {suspect_hair_info.get('length', '')})"
+                # Compute Hair Score
+                if crime_hair_info and raw_id in suspect_hair_map:
+                    suspect.hair_score = compute_hair_score(suspect_hair_map[raw_id], crime_hair_info)
                 else:
                     suspect.hair_score = 0
                 
                 suspects.append(suspect)
 
-        # --- Min-max normalization ---
-        dna_scores = [s.dna_score for s in suspects]
-        fp_scores = [s.fingerprint_score for s in suspects if s.fingerprint_score > 0]
-        hair_scores = [s.hair_score for s in suspects if s.hair_score > 0]
+        # 6. Min-Max Normalization for Final Ranking
+        if suspects:
+            dna_scores = [s.dna_score for s in suspects]
+            fp_scores = [s.fingerprint_score for s in suspects if s.fingerprint_score > 0]
+            
+            dna_min, dna_max = min(dna_scores), max(dna_scores)
+            fp_min, fp_max = (min(fp_scores), max(fp_scores)) if fp_scores else (0, 0)
 
-        dna_min, dna_max = min(dna_scores), max(dna_scores)
-        fp_min, fp_max = (min(fp_scores), max(fp_scores)) if fp_scores else (0, 1)
-        hair_min, hair_max = (min(hair_scores), max(hair_scores)) if hair_scores else (0, 1)
-
-        for s in suspects:
-            # Normalized DNA (0.0-1.0 scale, ensure no div by zero)
-            dna_range = dna_max - dna_min
-            s.norm_dna = (s.dna_score - dna_min) / dna_range if dna_range != 0 else 1.0
-            s.dna_score_percent = s.norm_dna * 100.0  # Convert to 0-100 scale
-            
-            # Normalized Fingerprint
-            if s.fingerprint_score > 0:
-                fp_range = fp_max - fp_min
-                s.norm_fp = (s.fingerprint_score - fp_min) / fp_range if fp_range != 0 else 1.0
-                s.fingerprint_score_percent = s.norm_fp * 100.0  # Convert to 0-100 scale
-            else:
-                s.norm_fp = 0
-                s.fingerprint_score_percent = 0.0
-            
-            # Normalized Hair Score (already 0-100 from compute_hair_score)
-            s.hair_score_percent = s.hair_score
-            
-            # Calculate total score based on weights
-            # Hair is calculated for display purposes only, does not affect combined score
-            # Combined score uses only DNA and fingerprint based on ranking mode
-            if dna_weight > 0 and fp_weight > 0:
-                # Both DNA and fingerprint (mixed)
-                s.total_score = ((dna_weight * s.norm_dna) + (fp_weight * s.norm_fp)) * 100.0
-            elif dna_weight > 0:
-                # DNA only
-                s.total_score = s.norm_dna * 100.0
-            elif fp_weight > 0:
-                # Fingerprint only
-                s.total_score = s.norm_fp * 100.0
-            else:
-                # No weights set, default to mixed
-                s.total_score = ((0.5 * s.norm_dna) + (0.5 * s.norm_fp)) * 100.0 
+            for s in suspects:
+                # DNA Normalization
+                dna_range = dna_max - dna_min
+                s.norm_dna = (s.dna_score - dna_min) / dna_range if dna_range != 0 else 1.0
+                s.dna_score_percent = s.norm_dna * 100.0
+                
+                # Fingerprint Normalization
+                if s.fingerprint_score > 0:
+                    fp_range = fp_max - fp_min
+                    s.norm_fp = (s.fingerprint_score - fp_min) / fp_range if fp_range != 0 else 1.0
+                else:
+                    s.norm_fp = 0.0
+                s.fingerprint_score_percent = s.norm_fp * 100.0
+                
+                # Combined Weighted Score
+                s.total_score = (dna_weight * s.norm_dna + fp_weight * s.norm_fp) * 100.0
 
     finally:
         if crime_fp_path and os.path.exists(crime_fp_path):
-            os.remove(crime_fp_path) # Clean up crime scene image
+            os.remove(crime_fp_path)
 
-    weights = {"dna_weight": dna_weight, "fp_weight": fp_weight}
-    return suspects, weights
+    return suspects, {"dna_weight": dna_weight, "fp_weight": fp_weight}
+
