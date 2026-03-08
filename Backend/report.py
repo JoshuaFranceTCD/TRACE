@@ -153,6 +153,8 @@ def compute_evidence_weights(dna_sequence, fp_image_path, fasta_header=None):
     if fp_image_path and os.path.exists(fp_image_path):
         img = cv2.imread(fp_image_path, cv2.IMREAD_GRAYSCALE)
         fp_quality = fingerprint_quality_score(img)
+        # Harsher penalty on low quality: squaring forces lower values to drop significantly.
+        fp_quality = fp_quality ** 2
     # If one modality is missing, give full weight to the other
     if dna_quality <= 0 and fp_quality <= 0:
         return 0.5, 0.5  # fallback

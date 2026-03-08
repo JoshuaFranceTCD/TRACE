@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Dna, Fingerprint, Footprints, BarChart3, CheckCircle2 } from "lucide-react";
+import { Dna, Fingerprint, Microscope, BarChart3, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { AnalysisStage } from "@/lib/forensic-data";
 
@@ -10,7 +10,7 @@ interface AnalysisProgressProps {
 const stages: { key: AnalysisStage; label: string; icon: React.ReactNode; duration: number }[] = [
   { key: 'dna', label: 'DNA Sequence Comparison', icon: <Dna className="h-4 w-4" />, duration: 2000 },
   { key: 'fingerprint', label: 'Fingerprint Minutiae Analysis', icon: <Fingerprint className="h-4 w-4" />, duration: 2500 },
-  { key: 'shoeprint', label: 'Shoeprint Pattern Matching', icon: <Footprints className="h-4 w-4" />, duration: 1800 },
+  { key: 'hair', label: 'Hair Fibre Analysis', icon: <Microscope className="h-4 w-4" />, duration: 1800 },
   { key: 'ranking', label: 'Computing Suspect Rankings', icon: <BarChart3 className="h-4 w-4" />, duration: 1200 },
 ];
 

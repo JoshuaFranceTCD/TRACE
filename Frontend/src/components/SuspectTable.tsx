@@ -91,13 +91,13 @@ const SuspectTable = ({ suspects, selectedId, onSelect, rankingMode = 'mixed' }:
               <div className="text-center">
                 <p className="text-[10px] font-mono text-muted-foreground">DNA</p>
                 <p className={cn("text-sm font-mono font-semibold", getScoreColor(suspect.dnaScore))}>
-                  {suspect.dnaScore}
+                  {suspect.dnaScore.toFixed(3)}
                 </p>
               </div>
               <div className="text-center">
                 <p className="text-[10px] font-mono text-muted-foreground">FP</p>
                 <p className={cn("text-sm font-mono font-semibold", getScoreColor(suspect.fingerprintScore))}>
-                  {suspect.fingerprintScore}
+                  {suspect.fingerprintScore.toFixed(3)}
                 </p>
               </div>
               <div className="text-center">
@@ -112,7 +112,7 @@ const SuspectTable = ({ suspects, selectedId, onSelect, rankingMode = 'mixed' }:
             <div className="text-center flex-shrink-0">
               <p className="text-[10px] font-mono text-muted-foreground">COMBINED</p>
               <p className={cn("text-lg font-mono font-bold", getScoreColor(suspect.combinedScore))}>
-                {suspect.combinedScore}
+                {suspect.combinedScore.toFixed(3)}
               </p>
             </div>
 

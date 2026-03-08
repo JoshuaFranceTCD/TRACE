@@ -99,8 +99,8 @@ from Bio import SeqIO
 
 def compute_fingerprint_score(suspect_fp_path, crime_fp_path):
     """
-    Compute fingerprint matching score using ORB + ratio test + RANSAC.
-    Returns the number of geometric inliers.
+    Compute fingerprint matching score using ORB + BFMatcher.
+    Returns the number of good matches (raw score).
     """
 
     print("\n--- Fingerprint Debug ---")
@@ -112,77 +112,38 @@ def compute_fingerprint_score(suspect_fp_path, crime_fp_path):
         return 0
 
     # Load images
-    crime_img = cv2.imread(crime_fp_path, cv2.IMREAD_GRAYSCALE)
-    suspect_img = cv2.imread(suspect_fp_path, cv2.IMREAD_GRAYSCALE)
+    suspect_file = cv2.imread(crime_fp_path)
+    img = cv2.imread(suspect_fp_path)
 
-    if crime_img is None or suspect_img is None:
+    if suspect_file is None or img is None:
         print("❌ Failed to load images")
         return 0
 
     print("✅ Images loaded")
-    print("Crime shape:", crime_img.shape)
-    print("Suspect shape:", suspect_img.shape)
+    print("Crime shape:", suspect_file.shape)
+    print("Suspect shape:", img.shape)
+    
+    # ORB: Oriented FAST and Rotated BRIEF
+    orb = cv2.ORB_create(nfeatures=1000)
 
-    # --- Preprocessing (helps fingerprint feature detection) ---
-    crime_img = cv2.equalizeHist(crime_img)
-    suspect_img = cv2.equalizeHist(suspect_img)
-
-    crime_img = cv2.GaussianBlur(crime_img, (5,5), 0)
-    suspect_img = cv2.GaussianBlur(suspect_img, (5,5), 0)
-
-    # --- Feature detection ---
-    detector = cv2.ORB_create(nfeatures=2000)
-
-    kp1, des1 = detector.detectAndCompute(crime_img, None)
-    kp2, des2 = detector.detectAndCompute(suspect_img, None)
-
-    print("Crime keypoints:", 0 if kp1 is None else len(kp1))
-    print("Suspect keypoints:", 0 if kp2 is None else len(kp2))
-
-    if des1 is None or des2 is None:
-        print("❌ No descriptors found")
+    # Evidence features and their descriptors
+    e_kp, e_des = orb.detectAndCompute(suspect_file, None)
+    
+    # Brute-force matcher for ORB (binary descriptors)
+    bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
+    
+    kp, des = orb.detectAndCompute(img, None)
+    if des is None or e_des is None:
         return 0
 
-    if len(kp1) < 4 or len(kp2) < 4:
-        print("❌ Not enough keypoints")
-        return 0
+    matches = bf.match(e_des, des) 
+    matches = sorted(matches, key=lambda m: m.distance)
 
-    # --- Descriptor matching ---
-    bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=False)
-    knn = bf.knnMatch(des1, des2, k=2)
+    # "Good" matches = simple distance threshold
+    good = [m for m in matches if m.distance < 75]
+    score = len(good)
 
-    print("Total KNN matches:", len(knn))
-
-    # --- Lowe ratio test ---
-    good = []
-    for m_n in knn:
-        if len(m_n) == 2:
-            m, n = m_n
-            if m.distance < 0.9 * n.distance:   # more lenient
-                good.append(m)
-
-    print("Good matches after ratio test:", len(good))
-
-    if len(good) < 4:
-        print("❌ Not enough good matches for RANSAC")
-        return 0
-
-    # --- Prepare RANSAC ---
-    src_pts = np.float32([kp1[m.queryIdx].pt for m in good]).reshape(-1,1,2)
-    dst_pts = np.float32([kp2[m.trainIdx].pt for m in good]).reshape(-1,1,2)
-
-    print("Running RANSAC with", len(src_pts), "points")
-
-    H, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, 5.0)
-
-    if mask is None:
-        print("❌ RANSAC failed")
-        return 0
-
-    inliers = int(mask.sum())
-    print("✅ RANSAC inliers:", inliers)
-
-    return inliers
+    return score
 
 
 def compute_hair_score(suspect_hair_info, crime_hair_info):
@@ -398,10 +359,8 @@ def analyze(evidence_dna_file, evidence_fp_file, suspect_dna_files, suspect_fp_f
         # 6. Min-Max Normalization for Final Ranking
         if suspects:
             dna_scores = [s.dna_score for s in suspects]
-            fp_scores = [s.fingerprint_score for s in suspects if s.fingerprint_score > 0]
             
             dna_min, dna_max = min(dna_scores), max(dna_scores)
-            fp_min, fp_max = (min(fp_scores), max(fp_scores)) if fp_scores else (0, 0)
 
             for s in suspects:
                 # DNA Normalization
@@ -409,13 +368,9 @@ def analyze(evidence_dna_file, evidence_fp_file, suspect_dna_files, suspect_fp_f
                 s.norm_dna = (s.dna_score - dna_min) / dna_range if dna_range != 0 else 1.0
                 s.dna_score_percent = s.norm_dna * 100.0
                 
-                # Fingerprint Normalization
-                if s.fingerprint_score > 0:
-                    fp_range = fp_max - fp_min
-                    s.norm_fp = (s.fingerprint_score - fp_min) / fp_range if fp_range != 0 else 1.0
-                else:
-                    s.norm_fp = 0.0
-                s.fingerprint_score_percent = s.norm_fp * 100.0
+                # Fingerprint Score 
+                s.norm_fp = s.fingerprint_score / 25.0 if s.fingerprint_score else 0.0 # scale to norm_fp space (0-1)
+                s.fingerprint_score_percent = (s.fingerprint_score / 25.0) * 100.0 if s.fingerprint_score else 0.0
                 
                 # Combined Weighted Score
                 s.total_score = (dna_weight * s.norm_dna + fp_weight * s.norm_fp) * 100.0
