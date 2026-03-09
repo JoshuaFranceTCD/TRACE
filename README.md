@@ -6,7 +6,7 @@ TRACE is a forensic support system that analyzes biological evidence (DNA sequen
 
 ### Method 1: Use the Deployed Version (Recommended)
 You can directly access the fully deployed version of TRACE online without installing anything:
-**[https://trace-dun.vercel.app/](https://trace-dun.vercel.app/)**
+**[https://trace-dun.vercel.app/](https://trace-dun.vercel.app/)** (though be aware of delays in responses between moderate periods of usage, due to backend sleeping)
 
 ---
 
@@ -71,5 +71,7 @@ The frontend is a beautifully designed, modern UI where you can upload evidence 
 When testing TRACE, you generally need the following types of files (example files can be found inside the `Backend/Data` folder):
 1. **Crime Scene DNA (`.fasta`)**: Sequence found at the crime scene.
 2. **Crime Scene Fingerprint (`.BMP` or similar)**: The fingerprint image from the evidence.
-3. **Suspect DNA Database (`.fasta`)**: Sequence database containing the suspects.
-4. **Suspect Fingerprints (Images)**: Used to cross-reference the suspects.
+3.  **Crime Scene Hair type (`.csv` or similar)**: The type of hair found at the crime scene.
+4. **Suspect DNA Database (`.fasta`)**: Sequence database containing the suspects.
+5. **Suspect Fingerprints (Images)**: Used to cross-reference the suspects.
+6. **Suspect Scene Hair Fibres (`.csv` or similar)**: Suspects's hair data.
