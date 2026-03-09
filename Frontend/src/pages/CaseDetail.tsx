@@ -9,7 +9,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 
-const API_BASE = process.env.REACT_APP_API_BASE_URL;
+const API_BASE = import.meta.env.VITE_API_BASE_URL || "";
 import 'katex/dist/katex.min.css';
 import EvidenceUploadPanel from "@/components/EvidenceUploadPanel";
 import AnalysisProgress from "@/components/AnalysisProgress";
