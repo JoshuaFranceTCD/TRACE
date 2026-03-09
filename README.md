@@ -14,6 +14,8 @@ You can directly access the fully deployed version of TRACE online without insta
 
 If you'd like to run TRACE on your local machine, the project is divided into two separate applications that need to be started: the **Backend** and the **Frontend**.
 
+The ``development`` branch may be required for local testing.
+
 #### Prerequisites:
 - **Node.js**: [Download and Install Node.js](https://nodejs.org/)
 - **Python 3.10+**: [Download and Install Python](https://www.python.org/)
